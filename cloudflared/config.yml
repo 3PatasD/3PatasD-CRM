@@ -1,0 +1,20 @@
+# Cloudflare Tunnel — Configuración para producción (Named Tunnel)
+#
+# PASOS PARA CONFIGURAR:
+# 1. Instalar cloudflared: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+# 2. Autenticarse: cloudflared tunnel login
+# 3. Crear tunnel: cloudflared tunnel create 3patasd-crm
+# 4. Copiar el UUID del tunnel y el fichero de credenciales a esta carpeta
+# 5. Configurar DNS: cloudflared tunnel route dns 3patasd-crm crm.tudominio.com
+# 6. Actualizar el docker-compose.yml descomentando "Option A" y comentando "Option B"
+#
+# Para pruebas SIN cuenta Cloudflare, usa "Option B" en docker-compose.yml
+# (tunnel --url http://app:3000) — genera una URL temporal *.trycloudflare.com
+
+tunnel: <TUNNEL_UUID>
+credentials-file: /etc/cloudflared/<TUNNEL_UUID>.json
+
+ingress:
+  - hostname: crm.tudominio.com
+    service: http://app:3000
+  - service: http_status:404

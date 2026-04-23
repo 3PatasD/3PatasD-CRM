@@ -1,0 +1,56 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: crm_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: 3patasd_crm
+      POSTGRES_USER: crm_user
+      POSTGRES_PASSWORD: crm_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm_user -d 3patasd_crm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: crm_app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://crm_user:crm_password@postgres:5432/3patasd_crm
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-changeme-in-production}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./public/uploads:/app/public/uploads
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: crm_cloudflared
+    restart: unless-stopped
+    # Option A: Named tunnel (production) - requires cloudflared/config.yml and credentials JSON
+    # command: tunnel --config /etc/cloudflared/config.yml run
+    # volumes:
+    #   - ./cloudflared:/etc/cloudflared
+    #
+    # Option B: Quick tunnel (testing) - no account needed, URL in logs
+    command: tunnel --url http://app:3000
+    depends_on:
+      - app
+
+volumes:
+  postgres_data:
