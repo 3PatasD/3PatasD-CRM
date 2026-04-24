@@ -12,6 +12,10 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
+# Dummy env vars so Next.js build doesn't fail on missing secrets
+ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
+ENV NEXTAUTH_SECRET="build-time-placeholder-secret-32-chars!!"
+ENV NEXTAUTH_URL="http://localhost:3000"
 RUN npm run build
 
 # Stage 3: Runner

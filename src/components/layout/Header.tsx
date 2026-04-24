@@ -1,5 +1,5 @@
 "use client";
-import { Menu, Moon, Sun, LogOut, User } from "lucide-react";
+import { Menu, Moon, Sun, LogOut } from "lucide-react";
 import { useTheme } from "next-themes";
 import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";

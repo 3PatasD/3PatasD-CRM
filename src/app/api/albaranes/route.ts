@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { toDecimal } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   const session = await auth();

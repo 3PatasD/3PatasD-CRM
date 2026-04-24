@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -101,12 +101,6 @@ export function DocumentoForm({ tipo, defaultClienteId, onSubmit, loading }: Pro
   function removeLinea(idx: number) {
     setLineas((prev) => prev.filter((_, i) => i !== idx).map((l, i) => ({ ...l, orden: i + 1 })));
   }
-
-  const subtotalLineas = lineas.reduce((acc, l) => {
-    const base = l.cantidad * l.precioUnitario * (1 - l.descuento / 100);
-    const iva = base * (l.iva / 100);
-    return acc + base + iva;
-  }, 0);
 
   const baseLineas = lineas.reduce((acc, l) => acc + l.cantidad * l.precioUnitario * (1 - l.descuento / 100), 0);
   const ivaTotal = lineas.reduce((acc, l) => {
