@@ -11,6 +11,7 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+RUN mkdir -p public/uploads
 RUN npx prisma generate
 # Dummy env vars so Next.js build doesn't fail on missing secrets
 ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
