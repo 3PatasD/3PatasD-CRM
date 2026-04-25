@@ -182,9 +182,7 @@ export default function PresupuestoDetallePage() {
           {data.pedido && (
             <Link href={`/pedidos/${data.pedido.id}`}><Button size="sm" variant="secondary">Ver pedido {data.pedido.numero}</Button></Link>
           )}
-          {(data.estado === "BORRADOR" || data.estado === "RECHAZADO") && (
-            <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)} disabled={acting}><Trash2 className="h-4 w-4 mr-1" />Eliminar</Button>
-          )}
+          <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)} disabled={acting}><Trash2 className="h-4 w-4 mr-1" />Eliminar</Button>
         </div>
       </div>
       <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title="¿Eliminar presupuesto?" description={`Vas a eliminar el presupuesto ${data.numero}. Esta acción no se puede deshacer.`} onConfirm={handleDelete} loading={deleting} confirmLabel="Eliminar" variant="destructive" requireText="eliminar" />

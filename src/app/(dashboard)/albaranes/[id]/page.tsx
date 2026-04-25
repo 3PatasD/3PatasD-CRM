@@ -118,9 +118,7 @@ export default function AlbaranDetallePage() {
           {data.factura && (
             <Link href={`/facturas/${data.factura.id}`}><Button size="sm" variant="secondary">Ver factura {data.factura.numero}</Button></Link>
           )}
-          {data.estado === "PENDIENTE" && (
-            <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)} disabled={acting}><Trash2 className="h-4 w-4 mr-1" />Eliminar</Button>
-          )}
+          <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)} disabled={acting}><Trash2 className="h-4 w-4 mr-1" />Eliminar</Button>
         </div>
       </div>
       <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title="¿Eliminar albarán?" description={`Vas a eliminar el albarán ${data.numero}. Esta acción no se puede deshacer.`} onConfirm={handleDelete} loading={deleting} confirmLabel="Eliminar" variant="destructive" requireText="eliminar" />

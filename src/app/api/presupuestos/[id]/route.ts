@@ -184,11 +184,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const presupuesto = await prisma.presupuesto.findUnique({ where: { id } });
     if (!presupuesto) return NextResponse.json({ error: "Presupuesto no encontrado" }, { status: 404 });
 
-    if (presupuesto.estado !== "BORRADOR" && presupuesto.estado !== "RECHAZADO") {
-      return NextResponse.json({ error: "Solo se pueden eliminar presupuestos en estado BORRADOR o RECHAZADO" }, { status: 400 });
-    }
-
-    await prisma.presupuesto.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      // Disconnect linked pedido before deleting
+      await tx.pedido.updateMany({ where: { presupuestoId: id }, data: { presupuestoId: null } });
+      await tx.presupuesto.delete({ where: { id } });
+    });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("DELETE /api/presupuestos/[id] error:", error);

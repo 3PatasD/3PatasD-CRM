@@ -152,12 +152,26 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   try {
     const { id } = await params;
-    const albaran = await prisma.albaran.findUnique({ where: { id } });
+    const albaran = await prisma.albaran.findUnique({
+      where: { id },
+      include: { lineas: true },
+    });
     if (!albaran) return NextResponse.json({ error: "Albarán no encontrado" }, { status: 404 });
-    if (albaran.estado !== "PENDIENTE") {
-      return NextResponse.json({ error: "Solo se pueden eliminar albaranes en estado PENDIENTE" }, { status: 400 });
-    }
-    await prisma.albaran.delete({ where: { id } });
+
+    await prisma.$transaction(async (tx) => {
+      // Restore stock if the albaran was already delivered
+      if (albaran.estado === "ENTREGADO") {
+        for (const linea of albaran.lineas) {
+          if (linea.productoId) {
+            await tx.producto.update({
+              where: { id: linea.productoId },
+              data: { stockActual: { increment: Number(linea.cantidad) } },
+            });
+          }
+        }
+      }
+      await tx.albaran.delete({ where: { id } });
+    });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("DELETE /api/albaranes/[id] error:", error);

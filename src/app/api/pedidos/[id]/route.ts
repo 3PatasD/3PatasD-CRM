@@ -98,9 +98,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     const { id } = await params;
     const pedido = await prisma.pedido.findUnique({ where: { id } });
     if (!pedido) return NextResponse.json({ error: "Pedido no encontrado" }, { status: 404 });
-    if (!["PENDIENTE", "CANCELADO"].includes(pedido.estado)) {
-      return NextResponse.json({ error: "Solo se pueden eliminar pedidos en estado PENDIENTE o CANCELADO" }, { status: 400 });
-    }
     await prisma.pedido.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {

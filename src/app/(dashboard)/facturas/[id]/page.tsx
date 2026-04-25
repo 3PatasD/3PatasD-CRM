@@ -98,9 +98,7 @@ export default function FacturaDetallePage() {
               <XCircle className="h-4 w-4 mr-1" />Anular
             </Button>
           )}
-          {data.estado !== "PAGADA" && (
-            <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)} disabled={acting}><Trash2 className="h-4 w-4 mr-1" />Eliminar</Button>
-          )}
+          <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)} disabled={acting}><Trash2 className="h-4 w-4 mr-1" />Eliminar</Button>
         </div>
       </div>
       <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title="¿Eliminar factura?" description={`Vas a eliminar la factura ${data.numero}. Los albaranes asociados quedarán sin factura. Esta acción no se puede deshacer.`} onConfirm={handleDelete} loading={deleting} confirmLabel="Eliminar" variant="destructive" requireText="eliminar" />

@@ -117,9 +117,7 @@ export default function PedidoDetallePage() {
           <a href={`/api/pedidos/${id}/pdf`} target="_blank" rel="noreferrer"><Button variant="outline" size="sm"><FileDown className="h-4 w-4 mr-1" />PDF</Button></a>
           {canAlbaranar && hayPendiente && <Button size="sm" onClick={() => setShowAlbaranForm(true)} disabled={acting}><Truck className="h-4 w-4 mr-1" />Crear albarán</Button>}
           {data.estado === "PENDIENTE" && <Button size="sm" variant="outline" onClick={() => cambiarEstado("CANCELADO")} disabled={acting}><X className="h-4 w-4 mr-1" />Cancelar</Button>}
-          {(data.estado === "PENDIENTE" || data.estado === "CANCELADO") && (
-            <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)} disabled={acting}><Trash2 className="h-4 w-4 mr-1" />Eliminar</Button>
-          )}
+          <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)} disabled={acting}><Trash2 className="h-4 w-4 mr-1" />Eliminar</Button>
         </div>
       </div>
       <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title="¿Eliminar pedido?" description={`Vas a eliminar el pedido ${data.numero}. Esta acción no se puede deshacer.`} onConfirm={handleDelete} loading={deleting} confirmLabel="Eliminar" variant="destructive" requireText="eliminar" />
