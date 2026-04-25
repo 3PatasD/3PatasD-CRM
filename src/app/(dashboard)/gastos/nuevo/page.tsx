@@ -28,7 +28,7 @@ export default function NuevoGastoPage() {
   const [concepto, setConcepto] = useState("");
   const [categoria, setCategoria] = useState("");
   const [proveedorNombre, setProveedorNombre] = useState("");
-  const [importe, setImporte] = useState("");
+  const [importeTotal, setImporteTotal] = useState("");
   const [iva, setIva] = useState("21");
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [fechaVencimiento, setFechaVencimiento] = useState("");
@@ -52,9 +52,10 @@ export default function NuevoGastoPage() {
     else if (tipo === "COMPRA_PUNTUAL") setEsRecurrente(false);
   }, [tipo]);
 
-  const importeNum = parseFloat(importe) || 0;
+  const importeTotalNum = parseFloat(importeTotal) || 0;
   const ivaNum = parseFloat(iva) || 0;
-  const importeTotal = importeNum * (1 + ivaNum / 100);
+  const importeBase = ivaNum > 0 ? importeTotalNum / (1 + ivaNum / 100) : importeTotalNum;
+  const cuotaIva = importeTotalNum - importeBase;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -66,7 +67,7 @@ export default function NuevoGastoPage() {
         body: JSON.stringify({
           tipo, concepto, categoria: categoria || null,
           proveedorNombre: proveedorNombre || null,
-          importe: importeNum, iva: ivaNum,
+          importe: importeBase, iva: ivaNum,
           fecha, fechaVencimiento: fechaVencimiento || null,
           estado, metodoPago: metodoPago || null,
           numeroFactura: numeroFactura || null,
@@ -154,18 +155,25 @@ export default function NuevoGastoPage() {
           <CardHeader><CardTitle className="text-base">Importes y fechas</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label>Importe sin IVA (€) *</Label>
-              <Input type="number" step="0.01" min="0" value={importe} onChange={(e) => setImporte(e.target.value)} placeholder="0.00" required />
+              <Label>Importe total con IVA (€) *</Label>
+              <Input type="number" step="0.01" min="0" value={importeTotal} onChange={(e) => setImporteTotal(e.target.value)} placeholder="0.00" required />
             </div>
             <div className="space-y-1.5">
-              <Label>IVA (%)</Label>
+              <Label>IVA aplicado (%)</Label>
               <select className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" value={iva} onChange={(e) => setIva(e.target.value)}>
                 {["0", "4", "10", "21"].map((v) => <option key={v} value={v}>{v}%</option>)}
               </select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Total con IVA</Label>
-              <div className="flex h-9 items-center px-3 rounded-md border bg-muted/30 text-sm font-medium">{importeTotal.toFixed(2)} €</div>
+            <div className="sm:col-span-2 rounded-md border bg-muted/30 px-4 py-3 text-sm space-y-1">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Base imponible</span><span>{importeBase.toFixed(2)} €</span>
+              </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>Cuota IVA ({ivaNum}%)</span><span>{cuotaIva.toFixed(2)} €</span>
+              </div>
+              <div className="flex justify-between font-semibold border-t pt-1 mt-1">
+                <span>Total</span><span>{importeTotalNum.toFixed(2)} €</span>
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label>Fecha del gasto</Label>

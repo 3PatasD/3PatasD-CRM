@@ -23,7 +23,7 @@ interface Gasto {
   createdAt: string;
 }
 
-type GastoForm = Omit<Partial<Gasto>, "importe" | "iva"> & { importe?: string; iva?: string };
+type GastoForm = Omit<Partial<Gasto>, "importe" | "iva" | "importeTotal"> & { importe?: string; iva?: string; importeTotal?: string };
 
 const TIPO_LABELS: Record<string, string> = {
   SUSCRIPCION: "Suscripción", COMPRA_PUNTUAL: "Compra puntual", FACTURA_PROVEEDOR: "Factura proveedor",
@@ -65,7 +65,7 @@ export default function GastoDetallePage() {
     if (!res.ok) { router.push("/gastos"); return; }
     const d = await res.json();
     setData(d);
-    setForm({ ...d, importe: String(d.importe), iva: String(d.iva) });
+    setForm({ ...d, importe: String(d.importe), importeTotal: String(d.importeTotal), iva: String(d.iva) });
     setLoading(false);
   }
 
@@ -80,13 +80,12 @@ export default function GastoDetallePage() {
   async function handleSave() {
     setSaving(true);
     try {
+      const ivaNum = parseFloat(form.iva ?? "0") || 0;
+      const totalNum = parseFloat(form.importeTotal ?? "0") || 0;
+      const baseNum = ivaNum > 0 ? totalNum / (1 + ivaNum / 100) : totalNum;
       const res = await fetch(`/api/gastos/${id}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          importe: parseFloat(form.importe ?? "0"),
-          iva: parseFloat(form.iva ?? "0"),
-        }),
+        body: JSON.stringify({ ...form, importe: baseNum, iva: ivaNum }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
       toast({ title: "Gasto actualizado" });
@@ -113,9 +112,14 @@ export default function GastoDetallePage() {
   if (!data) return null;
 
   const set = (f: string, v: string | boolean) => setForm((p) => ({ ...p, [f]: v }));
-  const importeNum = parseFloat(form.importe ?? "0") || 0;
-  const ivaNum = parseFloat(form.iva ?? "0") || 0;
-  const importeTotalCalc = importeNum * (1 + ivaNum / 100);
+  const editIvaNum = parseFloat(form.iva ?? "0") || 0;
+  const editTotalNum = parseFloat(form.importeTotal ?? "0") || 0;
+  const editBase = editIvaNum > 0 ? editTotalNum / (1 + editIvaNum / 100) : editTotalNum;
+  const editCuota = editTotalNum - editBase;
+  // View mode breakdown
+  const viewIva = Number(data.iva);
+  const viewBase = viewIva > 0 ? Number(data.importeTotal) / (1 + viewIva / 100) : Number(data.importeTotal);
+  const viewCuota = Number(data.importeTotal) - viewBase;
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -142,7 +146,7 @@ export default function GastoDetallePage() {
             </>
           ) : (
             <>
-              <Button variant="outline" size="sm" onClick={() => { setEditing(false); setForm({ ...data, importe: String(data.importe), iva: String(data.iva) }); }}><X className="h-4 w-4 mr-1" />Cancelar</Button>
+              <Button variant="outline" size="sm" onClick={() => { setEditing(false); setForm({ ...data, importe: String(data.importe), importeTotal: String(data.importeTotal), iva: String(data.iva) }); }}><X className="h-4 w-4 mr-1" />Cancelar</Button>
               <Button size="sm" onClick={handleSave} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}Guardar</Button>
             </>
           )}
@@ -191,20 +195,28 @@ export default function GastoDetallePage() {
           <CardHeader><CardTitle className="text-base">Importes y pago</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="flex flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">Importe sin IVA</Label>
-              {editing ? <Input type="number" step="0.01" value={form.importe ?? ""} onChange={(e) => set("importe", e.target.value)} className="h-8" /> : <span className="font-medium">{formatEuro(data.importe)}</span>}
+              <Label className="text-xs text-muted-foreground">Importe total con IVA</Label>
+              {editing
+                ? <Input type="number" step="0.01" value={form.importeTotal ?? ""} onChange={(e) => set("importeTotal", e.target.value)} className="h-8" />
+                : <span className="font-bold text-base">{formatEuro(data.importeTotal)}</span>}
             </div>
             <div className="flex flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">IVA</Label>
+              <Label className="text-xs text-muted-foreground">IVA aplicado</Label>
               {editing ? (
                 <select className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 text-sm" value={form.iva ?? "21"} onChange={(e) => set("iva", e.target.value)}>
                   {["0","4","10","21"].map((v) => <option key={v} value={v}>{v}%</option>)}
                 </select>
-              ) : <span>{Number(data.iva)}%</span>}
+              ) : <span>{viewIva}%</span>}
             </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">Total con IVA</Label>
-              <span className="font-bold text-base">{editing ? formatEuro(importeTotalCalc) : formatEuro(data.importeTotal)}</span>
+            <div className="rounded-md border bg-muted/30 px-3 py-2 space-y-1 text-xs text-muted-foreground">
+              <div className="flex justify-between">
+                <span>Base imponible</span>
+                <span>{formatEuro(editing ? editBase : viewBase)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Cuota IVA ({editing ? editIvaNum : viewIva}%)</span>
+                <span>{formatEuro(editing ? editCuota : viewCuota)}</span>
+              </div>
             </div>
             <div className="flex flex-col gap-1">
               <Label className="text-xs text-muted-foreground">Estado</Label>
