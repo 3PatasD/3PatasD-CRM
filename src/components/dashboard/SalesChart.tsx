@@ -1,6 +1,7 @@
 "use client";
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -8,6 +9,7 @@ interface DataPoint {
   mes: string;
   ingresos: number;
   gastos: number;
+  neto: number;
 }
 
 const MONTH_LABELS: Record<string, string> = {
@@ -22,7 +24,7 @@ function formatMes(mes: string) {
 }
 
 function formatEuroK(value: number) {
-  if (value >= 1000) return `${(value / 1000).toFixed(1)}k€`;
+  if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(1)}k€`;
   return `${value.toFixed(0)}€`;
 }
 
@@ -32,15 +34,24 @@ interface CustomTooltipProps {
   label?: string;
 }
 
+const LABELS: Record<string, string> = {
+  ingresos: "Ingresos",
+  gastos: "Gastos",
+  neto: "Beneficio neto",
+};
+
 function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
+  const fmt = (v: number) =>
+    new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(v);
   return (
-    <div className="rounded-lg border bg-background p-3 shadow-sm text-sm">
-      <p className="font-medium mb-1">{label}</p>
+    <div className="rounded-lg border bg-background p-3 shadow-sm text-sm min-w-44">
+      <p className="font-medium mb-2">{label}</p>
       {payload.map((p) => (
-        <p key={p.name} style={{ color: p.color }}>
-          {p.name}: {new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(p.value)}
-        </p>
+        <div key={p.name} className="flex justify-between gap-4">
+          <span style={{ color: p.color }}>{LABELS[p.name] ?? p.name}</span>
+          <span className="font-medium tabular-nums" style={{ color: p.color }}>{fmt(p.value)}</span>
+        </div>
       ))}
     </div>
   );
@@ -55,26 +66,55 @@ export function SalesChart({ data }: { data: DataPoint[] }) {
         <CardTitle className="text-base">Ingresos vs Gastos — últimos 12 meses</CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={280}>
-          <AreaChart data={formattedData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+        <ResponsiveContainer width="100%" height={300}>
+          <ComposedChart data={formattedData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
             <defs>
-              <linearGradient id="colorIngresos" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+              <linearGradient id="gradIngresos" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
                 <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
               </linearGradient>
-              <linearGradient id="colorGastos" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3} />
+              <linearGradient id="gradGastos" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.25} />
                 <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="label" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-            <YAxis tickFormatter={formatEuroK} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={55} />
+            <YAxis
+              tickFormatter={formatEuroK}
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+              width={58}
+            />
             <Tooltip content={<CustomTooltip />} />
-            <Legend formatter={(v) => v.charAt(0).toUpperCase() + v.slice(1)} />
-            <Area type="monotone" dataKey="ingresos" name="ingresos" stroke="#3b82f6" strokeWidth={2} fill="url(#colorIngresos)" />
-            <Area type="monotone" dataKey="gastos" name="gastos" stroke="#f43f5e" strokeWidth={2} fill="url(#colorGastos)" />
-          </AreaChart>
+            <Legend
+              formatter={(v) => LABELS[v] ?? v}
+              wrapperStyle={{ fontSize: 12 }}
+            />
+            <Area
+              type="monotone"
+              dataKey="ingresos"
+              stroke="#3b82f6"
+              strokeWidth={2}
+              fill="url(#gradIngresos)"
+            />
+            <Area
+              type="monotone"
+              dataKey="gastos"
+              stroke="#f43f5e"
+              strokeWidth={2}
+              fill="url(#gradGastos)"
+            />
+            <Line
+              type="monotone"
+              dataKey="neto"
+              stroke="#10b981"
+              strokeWidth={2.5}
+              dot={{ r: 3, fill: "#10b981" }}
+              strokeDasharray="6 3"
+            />
+          </ComposedChart>
         </ResponsiveContainer>
       </CardContent>
     </Card>

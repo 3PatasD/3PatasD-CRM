@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Euro, ShoppingCart, Receipt, Package } from "lucide-react";
+import { Euro, ShoppingCart, Receipt, Package, TrendingDown, TrendingUp } from "lucide-react";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { SalesChart } from "@/components/dashboard/SalesChart";
 import { TopClientesTable } from "@/components/dashboard/TopClientesTable";
@@ -11,11 +11,13 @@ interface DashboardData {
   ventasMesActual: number;
   ventasMesAnterior: number;
   tendenciaVentas: number;
+  gastosMesActual: number;
+  beneficioNeto: number;
   pedidosPendientes: number;
   facturasPendientesPago: number;
   productosStockBajo: { id: string; nombre: string; sku: string; stockActual: number; stockMinimo: number }[];
   topClientes: { clienteId: string; nombre: string; totalFacturado: number }[];
-  ingresosVsGastos: { mes: string; ingresos: number; gastos: number }[];
+  ingresosVsGastos: { mes: string; ingresos: number; gastos: number; neto: number }[];
 }
 
 export default function DashboardPage() {
@@ -36,8 +38,13 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground text-sm mt-1">Resumen del negocio</p>
         </div>
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-28 rounded-lg border bg-card animate-pulse" />
+          ))}
+        </div>
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {[...Array(3)].map((_, i) => (
             <div key={i} className="h-28 rounded-lg border bg-card animate-pulse" />
           ))}
         </div>
@@ -59,14 +66,30 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI row */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         <KPICard
-          title="Ventas este mes"
+          title="Ingresos este mes"
           value={formatEuro(data.ventasMesActual)}
           icon={Euro}
           tendencia={data.tendenciaVentas}
           colorClass="text-blue-600"
         />
+        <KPICard
+          title="Gastos este mes"
+          value={formatEuro(data.gastosMesActual)}
+          icon={TrendingDown}
+          descripcion="Compras a proveedores + gastos"
+          colorClass="text-rose-600"
+        />
+        <KPICard
+          title="Beneficio neto"
+          value={formatEuro(data.beneficioNeto)}
+          icon={data.beneficioNeto >= 0 ? TrendingUp : TrendingDown}
+          descripcion="Ingresos − Gastos del mes"
+          colorClass={data.beneficioNeto >= 0 ? "text-emerald-600" : "text-rose-600"}
+        />
+      </div>
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         <KPICard
           title="Pedidos pendientes"
           value={String(data.pedidosPendientes)}

@@ -14,7 +14,7 @@ export async function GET() {
     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
 
     // Ventas mes actual e anterior
-    const [facturasMes, facturasAnterior] = await Promise.all([
+    const [facturasMes, facturasAnterior, comprasMes, gastosMes] = await Promise.all([
       prisma.factura.aggregate({
         _sum: { total: true },
         where: { fechaEmision: { gte: startOfMonth }, estado: { not: "ANULADA" } },
@@ -26,6 +26,14 @@ export async function GET() {
           estado: { not: "ANULADA" },
         },
       }),
+      prisma.compra.aggregate({
+        _sum: { total: true },
+        where: { fechaEmision: { gte: startOfMonth }, estado: { not: "CANCELADA" } },
+      }),
+      prisma.gasto.aggregate({
+        _sum: { importeTotal: true },
+        where: { fecha: { gte: startOfMonth }, estado: { not: "CANCELADO" } },
+      }),
     ]);
 
     const ventasMesActual = toDecimal(facturasMes._sum.total);
@@ -34,6 +42,8 @@ export async function GET() {
       ventasMesAnterior > 0
         ? Math.round(((ventasMesActual - ventasMesAnterior) / ventasMesAnterior) * 100)
         : 0;
+    const gastosMesActual = toDecimal(comprasMes._sum.total) + toDecimal(gastosMes._sum.importeTotal);
+    const beneficioNeto = ventasMesActual - gastosMesActual;
 
     // Pedidos pendientes
     const pedidosPendientes = await prisma.pedido.count({
@@ -80,13 +90,13 @@ export async function GET() {
     );
 
     // Ingresos vs Gastos últimos 12 meses
-    const ingresosVsGastos: { mes: string; ingresos: number; gastos: number }[] = [];
+    const ingresosVsGastos: { mes: string; ingresos: number; gastos: number; neto: number }[] = [];
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const start = new Date(d.getFullYear(), d.getMonth(), 1);
       const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
 
-      const [ing, gas] = await Promise.all([
+      const [ing, comprasGas, gastosGas] = await Promise.all([
         prisma.factura.aggregate({
           _sum: { total: true },
           where: { fechaEmision: { gte: start, lte: end }, estado: { not: "ANULADA" } },
@@ -95,12 +105,19 @@ export async function GET() {
           _sum: { total: true },
           where: { fechaEmision: { gte: start, lte: end }, estado: { not: "CANCELADA" } },
         }),
+        prisma.gasto.aggregate({
+          _sum: { importeTotal: true },
+          where: { fecha: { gte: start, lte: end }, estado: { not: "CANCELADO" } },
+        }),
       ]);
 
+      const ingresos = toDecimal(ing._sum.total);
+      const gastos = toDecimal(comprasGas._sum.total) + toDecimal(gastosGas._sum.importeTotal);
       ingresosVsGastos.push({
         mes: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
-        ingresos: toDecimal(ing._sum.total),
-        gastos: toDecimal(gas._sum.total),
+        ingresos,
+        gastos,
+        neto: ingresos - gastos,
       });
     }
 
@@ -108,6 +125,8 @@ export async function GET() {
       ventasMesActual,
       ventasMesAnterior,
       tendenciaVentas,
+      gastosMesActual,
+      beneficioNeto,
       pedidosPendientes,
       facturasPendientesPago,
       productosStockBajo,
