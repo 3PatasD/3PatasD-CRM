@@ -22,7 +22,7 @@ export interface LineaInput {
 }
 
 export interface DocumentoFormData {
-  clienteId: string;
+  clienteNombre: string;
   fechaValidez?: string;
   fechaEntrega?: string;
   direccionEntrega?: string;
@@ -33,35 +33,60 @@ export interface DocumentoFormData {
   lineas: LineaInput[];
 }
 
+export interface InitialData {
+  clienteNombre: string;
+  fechaValidez?: string;
+  fechaEntrega?: string;
+  direccionEntrega?: string;
+  notasInternas?: string;
+  notasCliente?: string;
+  descuentoGlobal?: number;
+  codigoPromo?: { id: string; codigo: string; tipo: string; valor: number } | null;
+  lineas?: LineaInput[];
+}
+
 interface Props {
   tipo: "presupuesto" | "pedido";
   defaultClienteId?: string;
+  initialData?: InitialData;
   onSubmit: (data: DocumentoFormData) => Promise<void>;
   loading: boolean;
 }
 
-export function DocumentoForm({ tipo, defaultClienteId, onSubmit, loading }: Props) {
+export function DocumentoForm({ tipo, defaultClienteId, initialData, onSubmit, loading }: Props) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
-  const [clienteId, setClienteId] = useState(defaultClienteId ?? "");
-  const [fecha2, setFecha2] = useState("");
-  const [direccionEntrega, setDireccionEntrega] = useState("");
-  const [notasInternas, setNotasInternas] = useState("");
-  const [notasCliente, setNotasCliente] = useState("");
-  const [descuentoGlobal, setDescuentoGlobal] = useState(0);
-  const [codigoPromo, setCodigoPromo] = useState("");
-  const [promoData, setPromoData] = useState<Promo | null>(null);
+  const [clienteNombre, setClienteNombre] = useState(initialData?.clienteNombre ?? "");
+  const [fecha2, setFecha2] = useState(initialData?.fechaValidez ?? initialData?.fechaEntrega ?? "");
+  const [direccionEntrega, setDireccionEntrega] = useState(initialData?.direccionEntrega ?? "");
+  const [notasInternas, setNotasInternas] = useState(initialData?.notasInternas ?? "");
+  const [notasCliente, setNotasCliente] = useState(initialData?.notasCliente ?? "");
+  const [descuentoGlobal, setDescuentoGlobal] = useState(initialData?.descuentoGlobal ?? 0);
+  const [codigoPromo, setCodigoPromo] = useState(initialData?.codigoPromo?.codigo ?? "");
+  const [promoData, setPromoData] = useState<Promo | null>(
+    initialData?.codigoPromo
+      ? { id: initialData.codigoPromo.id, codigo: initialData.codigoPromo.codigo, tipo: initialData.codigoPromo.tipo, valor: initialData.codigoPromo.valor, descripcion: null }
+      : null
+  );
   const [promoError, setPromoError] = useState("");
   const [checkingPromo, setCheckingPromo] = useState(false);
-  const [lineas, setLineas] = useState<LineaInput[]>([
-    { descripcion: "", cantidad: 1, precioUnitario: 0, descuento: 0, iva: 21, orden: 1 },
-  ]);
+  const [lineas, setLineas] = useState<LineaInput[]>(
+    initialData?.lineas ?? [{ descripcion: "", cantidad: 1, precioUnitario: 0, descuento: 0, iva: 21, orden: 1 }]
+  );
 
   useEffect(() => {
     Promise.all([
       fetch("/api/clientes").then((r) => r.json()),
       fetch("/api/productos").then((r) => r.json()),
-    ]).then(([c, p]) => { setClientes(c); setProductos(p); });
+    ]).then(([c, p]) => {
+      setClientes(c);
+      setProductos(p);
+      // Pre-fill client name from ID when navigating from a client detail page
+      if (defaultClienteId && !initialData) {
+        const found = (c as Cliente[]).find((x) => x.id === defaultClienteId);
+        if (found) setClienteNombre(found.nombre);
+      }
+    });
   }, []);
 
   async function checkPromo() {
@@ -119,7 +144,7 @@ export function DocumentoForm({ tipo, defaultClienteId, onSubmit, loading }: Pro
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     await onSubmit({
-      clienteId,
+      clienteNombre: clienteNombre.trim(),
       [tipo === "presupuesto" ? "fechaValidez" : "fechaEntrega"]: fecha2 || undefined,
       direccionEntrega: tipo === "pedido" ? (direccionEntrega || undefined) : undefined,
       notasInternas: notasInternas || undefined,
@@ -138,13 +163,20 @@ export function DocumentoForm({ tipo, defaultClienteId, onSubmit, loading }: Pro
         <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <Label>Cliente *</Label>
-            <select
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              value={clienteId} onChange={(e) => setClienteId(e.target.value)} required
-            >
-              <option value="">Seleccionar cliente...</option>
-              {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}{c.cifNif ? ` (${c.cifNif})` : ""}</option>)}
-            </select>
+            <Input
+              list="clientes-datalist"
+              value={clienteNombre}
+              onChange={(e) => setClienteNombre(e.target.value)}
+              placeholder="Nombre del cliente..."
+              required
+            />
+            <datalist id="clientes-datalist">
+              {clientes.map((c) => (
+                <option key={c.id} value={c.nombre}>
+                  {c.cifNif ? `${c.nombre} (${c.cifNif})` : c.nombre}
+                </option>
+              ))}
+            </datalist>
           </div>
           <div className="space-y-1.5">
             <Label>{tipo === "presupuesto" ? "Fecha de validez" : "Fecha de entrega"}</Label>
@@ -260,7 +292,12 @@ export function DocumentoForm({ tipo, defaultClienteId, onSubmit, loading }: Pro
           <div className="space-y-2 text-sm border rounded-lg p-4 bg-muted/20">
             <div className="flex justify-between"><span className="text-muted-foreground">Base imponible</span><span>{formatEuro(baseLineas)}</span></div>
             {descuentoGlobal > 0 && <div className="flex justify-between text-orange-600"><span>Descuento {descuentoGlobal}%</span><span>-{formatEuro(baseLineas * descuentoGlobal / 100)}</span></div>}
-            {descuentoPromoCalc > 0 && <div className="flex justify-between text-orange-600"><span>Código promo</span><span>-{formatEuro(descuentoPromoCalc)}</span></div>}
+            {descuentoPromoCalc > 0 && (
+              <div className="flex justify-between text-orange-600">
+                <span>{promoData?.codigo ?? "Código promo"}{promoData?.tipo === "PORCENTAJE" ? ` (${promoData.valor}%)` : ""}</span>
+                <span>-{formatEuro(descuentoPromoCalc)}</span>
+              </div>
+            )}
             <div className="flex justify-between"><span className="text-muted-foreground">IVA</span><span>{formatEuro(ivaTotal)}</span></div>
             <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2"><span>Total</span><span>{formatEuro(totalFinal)}</span></div>
           </div>
@@ -283,8 +320,8 @@ export function DocumentoForm({ tipo, defaultClienteId, onSubmit, loading }: Pro
       </Card>
 
       <div className="flex justify-end gap-3">
-        <Button type="submit" disabled={loading || !clienteId || lineas.length === 0}>
-          {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Guardando...</> : `Crear ${tipo === "presupuesto" ? "presupuesto" : "pedido"}`}
+        <Button type="submit" disabled={loading || !clienteNombre.trim() || lineas.length === 0}>
+          {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Guardando...</> : `${initialData ? "Guardar cambios" : "Crear"} ${tipo === "presupuesto" ? "presupuesto" : "pedido"}`}
         </Button>
       </div>
     </form>

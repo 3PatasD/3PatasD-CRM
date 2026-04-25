@@ -4,17 +4,22 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Loader2, FileDown, CheckCircle, XCircle, RefreshCw } from "lucide-react";
+import { ArrowLeft, Loader2, FileDown, CheckCircle, XCircle, RefreshCw, Pencil, X } from "lucide-react";
 import { formatDate, formatEuro } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { DocumentoForm, type DocumentoFormData, type InitialData } from "@/components/documentos/DocumentoForm";
 
-interface Linea { id: string; descripcion: string; cantidad: number; precioUnitario: number; descuento: number; iva: number; subtotal: number; }
+interface Linea {
+  id: string; productoId?: string | null; descripcion: string; cantidad: number;
+  precioUnitario: number; descuento: number; iva: number; subtotal: number; orden: number;
+}
 interface Presupuesto {
   id: string; numero: string; estado: string; fechaEmision: string; fechaValidez: string | null;
   subtotal: number; totalIva: number; descuentoGlobal: number; descuentoPromo: number; total: number;
   notasCliente: string | null; notasInternas: string | null;
   cliente: { id: string; nombre: string; cifNif: string | null; email: string | null; direccion: string | null; ciudad: string | null };
   usuario: { nombre: string };
+  codigoPromo: { id: string; codigo: string; tipo: string; valor: number } | null;
   lineas: Linea[];
   pedido: { id: string; numero: string } | null;
 }
@@ -31,6 +36,8 @@ export default function PresupuestoDetallePage() {
   const [data, setData] = useState<Presupuesto | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => { fetchData(); }, [id]);
 
@@ -71,8 +78,58 @@ export default function PresupuestoDetallePage() {
     } finally { setActing(false); }
   }
 
+  async function handleEditSubmit(formData: DocumentoFormData) {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/presupuestos/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: "Presupuesto actualizado" });
+      setEditing(false);
+      fetchData();
+    } catch (err: unknown) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Error", variant: "destructive" });
+    } finally { setSaving(false); }
+  }
+
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   if (!data) return null;
+
+  const editInitialData: InitialData = {
+    clienteNombre: data.cliente.nombre,
+    fechaValidez: data.fechaValidez ?? undefined,
+    notasInternas: data.notasInternas ?? undefined,
+    notasCliente: data.notasCliente ?? undefined,
+    descuentoGlobal: Number(data.descuentoGlobal),
+    codigoPromo: data.codigoPromo ?? null,
+    lineas: data.lineas.map((l) => ({
+      productoId: l.productoId ?? undefined,
+      descripcion: l.descripcion,
+      cantidad: Number(l.cantidad),
+      precioUnitario: Number(l.precioUnitario),
+      descuento: Number(l.descuento),
+      iva: Number(l.iva),
+      orden: l.orden,
+    })),
+  };
+
+  if (editing) {
+    return (
+      <div className="space-y-6 max-w-4xl">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => setEditing(false)}><X className="h-4 w-4" /></Button>
+          <div>
+            <h1 className="text-2xl font-bold font-mono">Editar {data.numero}</h1>
+            <p className="text-muted-foreground text-sm">Los cambios recalcularán los totales</p>
+          </div>
+        </div>
+        <DocumentoForm tipo="presupuesto" initialData={editInitialData} onSubmit={handleEditSubmit} loading={saving} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -88,6 +145,11 @@ export default function PresupuestoDetallePage() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {!data.pedido && (
+            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+              <Pencil className="h-4 w-4 mr-1" />Editar
+            </Button>
+          )}
           <a href={`/api/presupuestos/${id}/pdf`} target="_blank" rel="noreferrer">
             <Button variant="outline" size="sm"><FileDown className="h-4 w-4 mr-1" />PDF</Button>
           </a>
@@ -162,8 +224,22 @@ export default function PresupuestoDetallePage() {
       <div className="flex justify-end">
         <div className="w-72 space-y-1.5 text-sm">
           <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatEuro(data.subtotal)}</span></div>
-          {Number(data.descuentoGlobal) > 0 && <div className="flex justify-between text-orange-600"><span>Descuento {Number(data.descuentoGlobal)}%</span><span>-{formatEuro(data.subtotal * Number(data.descuentoGlobal) / 100)}</span></div>}
-          {Number(data.descuentoPromo) > 0 && <div className="flex justify-between text-orange-600"><span>Código promo</span><span>-{formatEuro(data.descuentoPromo)}</span></div>}
+          {Number(data.descuentoGlobal) > 0 && (
+            <div className="flex justify-between text-orange-600">
+              <span>Descuento {Number(data.descuentoGlobal)}%</span>
+              <span>-{formatEuro(data.subtotal * Number(data.descuentoGlobal) / 100)}</span>
+            </div>
+          )}
+          {Number(data.descuentoPromo) > 0 && (
+            <div className="flex justify-between text-orange-600">
+              <span>
+                {data.codigoPromo
+                  ? `${data.codigoPromo.codigo} (${data.codigoPromo.tipo === "PORCENTAJE" ? `${data.codigoPromo.valor}%` : formatEuro(data.codigoPromo.valor)})`
+                  : "Código promo"}
+              </span>
+              <span>-{formatEuro(data.descuentoPromo)}</span>
+            </div>
+          )}
           <div className="flex justify-between"><span className="text-muted-foreground">IVA</span><span>{formatEuro(data.totalIva)}</span></div>
           <div className="flex justify-between font-bold text-base border-t pt-2"><span>Total</span><span>{formatEuro(data.total)}</span></div>
         </div>

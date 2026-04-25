@@ -73,10 +73,31 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (body.notasInternas !== undefined) updateData.notasInternas = body.notasInternas;
     if (body.notasCliente !== undefined) updateData.notasCliente = body.notasCliente;
 
+    // Resolve client by name if provided
+    if (body.clienteNombre !== undefined) {
+      const nombre = body.clienteNombre?.trim();
+      if (nombre) {
+        let cliente = await prisma.cliente.findFirst({ where: { nombre: { equals: nombre, mode: "insensitive" } } });
+        if (!cliente) {
+          cliente = await prisma.cliente.create({ data: { nombre, activo: true } });
+        }
+        updateData.clienteId = cliente.id;
+      }
+    }
+
     // Recalculate only if lineas are provided
     if (body.lineas && Array.isArray(body.lineas)) {
       const descuentoGlobal = body.descuentoGlobal ?? toDecimal(existing.descuentoGlobal);
       const codigoPromoId = body.codigoPromoId !== undefined ? body.codigoPromoId : existing.codigoPromoId;
+      updateData.codigoPromoId = codigoPromoId ?? null;
+
+      // Load the promo from DB to get fresh values (may differ from existing.codigoPromo if changed)
+      let promoForCalc = existing.codigoPromo;
+      if (codigoPromoId && codigoPromoId !== existing.codigoPromoId) {
+        promoForCalc = await prisma.codigoPromocion.findUnique({ where: { id: codigoPromoId } });
+      } else if (!codigoPromoId) {
+        promoForCalc = null;
+      }
 
       let subtotalBase = 0;
       let totalIva = 0;
@@ -90,12 +111,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
       const subtotalAfterGlobal = subtotalBase * (1 - (descuentoGlobal ?? 0) / 100);
       let descuentoPromo = 0;
-      if (codigoPromoId && existing.codigoPromo) {
-        const promo = existing.codigoPromo;
-        if (promo.tipo === "PORCENTAJE") {
-          descuentoPromo = subtotalAfterGlobal * (toDecimal(promo.valor) / 100);
+      if (promoForCalc) {
+        if (promoForCalc.tipo === "PORCENTAJE") {
+          descuentoPromo = subtotalAfterGlobal * (toDecimal(promoForCalc.valor) / 100);
         } else {
-          descuentoPromo = toDecimal(promo.valor);
+          descuentoPromo = toDecimal(promoForCalc.valor);
         }
       }
       const total = subtotalAfterGlobal - descuentoPromo + totalIva;

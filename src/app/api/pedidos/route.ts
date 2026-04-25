@@ -61,14 +61,18 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     type LineaInput = { productoId?: string; descripcion: string; cantidad: number; precioUnitario: number; descuento: number; iva: number; orden: number };
-    const { clienteId, fechaEntrega, direccionEntrega, notasInternas, notasCliente, descuentoGlobal = 0, codigoPromoId } = body;
+    const { clienteNombre, fechaEntrega, direccionEntrega, notasInternas, notasCliente, descuentoGlobal = 0, codigoPromoId } = body;
     const lineas: LineaInput[] = body.lineas ?? [];
 
-    if (!clienteId) return NextResponse.json({ error: "clienteId es obligatorio" }, { status: 400 });
+    if (!clienteNombre?.trim()) return NextResponse.json({ error: "El nombre del cliente es obligatorio" }, { status: 400 });
     if (!lineas.length) return NextResponse.json({ error: "Debe incluir al menos una línea" }, { status: 400 });
 
-    const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } });
-    if (!cliente) return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
+    // Find existing client by name (case-insensitive) or create a new one
+    let cliente = await prisma.cliente.findFirst({ where: { nombre: { equals: clienteNombre.trim(), mode: "insensitive" } } });
+    if (!cliente) {
+      cliente = await prisma.cliente.create({ data: { nombre: clienteNombre.trim(), activo: true } });
+    }
+    const clienteId = cliente.id;
 
     let promo = null;
     if (codigoPromoId) {
