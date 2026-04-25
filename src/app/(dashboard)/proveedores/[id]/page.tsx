@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Loader2, Pencil, Save, X } from "lucide-react";
+import { ArrowLeft, Loader2, Pencil, Save, X, Trash2 } from "lucide-react";
 import { formatDate, formatEuro } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 interface Compra { id: string; numero: string; estado: string; total: number; fechaEmision: string }
 interface Proveedor {
@@ -31,6 +32,8 @@ export default function ProveedorDetallePage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState<Partial<Proveedor>>({});
 
   useEffect(() => { fetchProveedor(); }, [id]);
@@ -66,6 +69,17 @@ export default function ProveedorDetallePage() {
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   if (!proveedor) return null;
 
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/proveedores/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: "Proveedor eliminado" });
+      router.push("/proveedores");
+    } catch (err: unknown) { toast({ title: "Error", description: err instanceof Error ? err.message : "Error", variant: "destructive" }); }
+    finally { setDeleting(false); setDeleteOpen(false); }
+  }
+
   const set = (f: string, v: string) => setForm((p) => ({ ...p, [f]: v }));
   const F = (field: keyof Proveedor) => editing
     ? <Input value={(form[field] as string) ?? ""} onChange={(e) => set(field, e.target.value)} className="h-8" />
@@ -88,10 +102,14 @@ export default function ProveedorDetallePage() {
               <Button onClick={handleSave} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}Guardar</Button>
             </>
           ) : (
-            <Button variant="outline" onClick={() => setEditing(true)}><Pencil className="h-4 w-4 mr-1" />Editar</Button>
+            <>
+              <Button variant="outline" onClick={() => setEditing(true)}><Pencil className="h-4 w-4 mr-1" />Editar</Button>
+              <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}><Trash2 className="h-4 w-4 mr-1" />Eliminar</Button>
+            </>
           )}
         </div>
       </div>
+      <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title="¿Eliminar proveedor?" description={`Vas a eliminar a ${proveedor.nombre}. El proveedor quedará inactivo.`} onConfirm={handleDelete} loading={deleting} confirmLabel="Eliminar" variant="destructive" requireText="eliminar" />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>

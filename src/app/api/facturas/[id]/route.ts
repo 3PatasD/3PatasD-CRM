@@ -109,3 +109,25 @@ export async function PUT(
     return NextResponse.json({ error: "Error al actualizar factura" }, { status: 500 });
   }
 }
+
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  try {
+    const { id } = await params;
+    const factura = await prisma.factura.findUnique({ where: { id } });
+    if (!factura) return NextResponse.json({ error: "Factura no encontrada" }, { status: 404 });
+    if (factura.estado === "PAGADA") {
+      return NextResponse.json({ error: "No se pueden eliminar facturas pagadas" }, { status: 400 });
+    }
+    // Unlink albaranes before deleting
+    await prisma.$transaction(async (tx) => {
+      await tx.albaran.updateMany({ where: { facturaId: id }, data: { facturaId: null } });
+      await tx.factura.delete({ where: { id } });
+    });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("DELETE /api/facturas/[id] error:", error);
+    return NextResponse.json({ error: "Error al eliminar factura" }, { status: 500 });
+  }
+}

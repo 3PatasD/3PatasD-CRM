@@ -4,9 +4,10 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Loader2, FileDown, CheckCircle, XCircle } from "lucide-react";
+import { ArrowLeft, Loader2, FileDown, CheckCircle, XCircle, Trash2 } from "lucide-react";
 import { formatDate, formatEuro, toDecimal } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 interface LineaAlbaran { id: string; descripcion: string; cantidad: number; precioUnitario: number; iva: number; subtotal: number; }
 interface Albaran { id: string; numero: string; lineas: LineaAlbaran[]; }
@@ -30,6 +31,8 @@ export default function FacturaDetallePage() {
   const [data, setData] = useState<Factura | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => { fetchData(); }, [id]);
 
@@ -52,6 +55,17 @@ export default function FacturaDetallePage() {
       fetchData();
     } catch (err: unknown) { toast({ title: "Error", description: err instanceof Error ? err.message : "Error", variant: "destructive" }); }
     finally { setActing(false); }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/facturas/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: "Factura eliminada" });
+      router.push("/facturas");
+    } catch (err: unknown) { toast({ title: "Error", description: err instanceof Error ? err.message : "Error", variant: "destructive" }); }
+    finally { setDeleting(false); setDeleteOpen(false); }
   }
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" /></div>;
@@ -84,8 +98,12 @@ export default function FacturaDetallePage() {
               <XCircle className="h-4 w-4 mr-1" />Anular
             </Button>
           )}
+          {data.estado !== "PAGADA" && (
+            <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)} disabled={acting}><Trash2 className="h-4 w-4 mr-1" />Eliminar</Button>
+          )}
         </div>
       </div>
+      <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title="¿Eliminar factura?" description={`Vas a eliminar la factura ${data.numero}. Los albaranes asociados quedarán sin factura. Esta acción no se puede deshacer.`} onConfirm={handleDelete} loading={deleting} confirmLabel="Eliminar" variant="destructive" requireText="eliminar" />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>

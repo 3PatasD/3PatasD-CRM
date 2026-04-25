@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Loader2, Pencil, Save, X, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Loader2, Pencil, Save, X, AlertTriangle, Trash2 } from "lucide-react";
 import { formatEuro } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 interface Categoria { id: string; nombre: string }
 interface Producto {
@@ -28,6 +29,8 @@ export default function ProductoDetallePage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState<Partial<Producto & { precioCosto: string; precioVenta: string; iva: string; stockActual: string; stockMinimo: string }>>({});
 
   useEffect(() => {
@@ -70,6 +73,17 @@ export default function ProductoDetallePage() {
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   if (!producto) return null;
 
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/productos/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: "Producto eliminado" });
+      router.push("/productos");
+    } catch (err: unknown) { toast({ title: "Error", description: err instanceof Error ? err.message : "Error", variant: "destructive" }); }
+    finally { setDeleting(false); setDeleteOpen(false); }
+  }
+
   const lowStock = Number(producto.stockActual) <= Number(producto.stockMinimo);
   const set = (f: string, v: string) => setForm((p) => ({ ...p, [f]: v }));
 
@@ -93,10 +107,14 @@ export default function ProductoDetallePage() {
               <Button onClick={handleSave} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}Guardar</Button>
             </>
           ) : (
-            <Button variant="outline" onClick={() => setEditing(true)}><Pencil className="h-4 w-4 mr-1" />Editar</Button>
+            <>
+              <Button variant="outline" onClick={() => setEditing(true)}><Pencil className="h-4 w-4 mr-1" />Editar</Button>
+              <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}><Trash2 className="h-4 w-4 mr-1" />Eliminar</Button>
+            </>
           )}
         </div>
       </div>
+      <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title="¿Eliminar producto?" description={`Vas a eliminar ${producto.nombre} (${producto.sku}). El producto quedará inactivo y no aparecerá en el catálogo.`} onConfirm={handleDelete} loading={deleting} confirmLabel="Eliminar" variant="destructive" requireText="eliminar" />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>

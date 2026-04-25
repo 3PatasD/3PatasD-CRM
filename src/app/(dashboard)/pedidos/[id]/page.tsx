@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, FileDown, Truck, X } from "lucide-react";
+import { ArrowLeft, Loader2, FileDown, Truck, X, Trash2 } from "lucide-react";
 import { formatDate, formatEuro, toDecimal } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 interface LineaPedido { id: string; descripcion: string; cantidad: number; cantidadServida: number; precioUnitario: number; iva: number; subtotal: number; }
 interface Albaran { id: string; numero: string; estado: string; fechaEmision: string; }
@@ -34,6 +35,8 @@ export default function PedidoDetallePage() {
   const [data, setData] = useState<Pedido | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [showAlbaranForm, setShowAlbaranForm] = useState(false);
   const [cantidades, setCantidades] = useState<Record<string, number>>({});
 
@@ -80,6 +83,17 @@ export default function PedidoDetallePage() {
     finally { setActing(false); }
   }
 
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/pedidos/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: "Pedido eliminado" });
+      router.push("/pedidos");
+    } catch (err: unknown) { toast({ title: "Error", description: err instanceof Error ? err.message : "Error", variant: "destructive" }); }
+    finally { setDeleting(false); setDeleteOpen(false); }
+  }
+
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   if (!data) return null;
 
@@ -103,8 +117,12 @@ export default function PedidoDetallePage() {
           <a href={`/api/pedidos/${id}/pdf`} target="_blank" rel="noreferrer"><Button variant="outline" size="sm"><FileDown className="h-4 w-4 mr-1" />PDF</Button></a>
           {canAlbaranar && hayPendiente && <Button size="sm" onClick={() => setShowAlbaranForm(true)} disabled={acting}><Truck className="h-4 w-4 mr-1" />Crear albarán</Button>}
           {data.estado === "PENDIENTE" && <Button size="sm" variant="outline" onClick={() => cambiarEstado("CANCELADO")} disabled={acting}><X className="h-4 w-4 mr-1" />Cancelar</Button>}
+          {(data.estado === "PENDIENTE" || data.estado === "CANCELADO") && (
+            <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)} disabled={acting}><Trash2 className="h-4 w-4 mr-1" />Eliminar</Button>
+          )}
         </div>
       </div>
+      <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title="¿Eliminar pedido?" description={`Vas a eliminar el pedido ${data.numero}. Esta acción no se puede deshacer.`} onConfirm={handleDelete} loading={deleting} confirmLabel="Eliminar" variant="destructive" requireText="eliminar" />
 
       {data.presupuesto && <div className="text-sm text-muted-foreground">Generado desde: <Link href={`/presupuestos/${data.presupuesto.id}`} className="text-primary hover:underline font-mono">{data.presupuesto.numero}</Link></div>}
 

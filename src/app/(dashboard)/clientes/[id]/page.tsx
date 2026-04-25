@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Loader2, Pencil, Save, X } from "lucide-react";
+import { ArrowLeft, Loader2, Pencil, Save, X, Trash2 } from "lucide-react";
 import { formatDate, formatEuro } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 interface Presupuesto { id: string; numero: string; estado: string; total: number; fechaEmision: string }
 interface Factura { id: string; numero: string; estado: string; total: number; fechaEmision: string }
@@ -36,6 +37,8 @@ export default function ClienteDetallePage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState<Partial<Cliente>>({});
 
   useEffect(() => { fetchCliente(); }, [id]);
@@ -75,6 +78,17 @@ export default function ClienteDetallePage() {
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   if (!cliente) return null;
 
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/clientes/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: "Cliente eliminado" });
+      router.push("/clientes");
+    } catch (err: unknown) { toast({ title: "Error", description: err instanceof Error ? err.message : "Error", variant: "destructive" }); }
+    finally { setDeleting(false); setDeleteOpen(false); }
+  }
+
   const set = (field: string, value: string) => setForm((p) => ({ ...p, [field]: value }));
   const F = (field: keyof Cliente) => editing
     ? <Input value={(form[field] as string) ?? ""} onChange={(e) => set(field, e.target.value)} className="h-8" />
@@ -97,10 +111,14 @@ export default function ClienteDetallePage() {
               <Button onClick={handleSave} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}Guardar</Button>
             </>
           ) : (
-            <Button variant="outline" onClick={() => setEditing(true)}><Pencil className="h-4 w-4 mr-1" />Editar</Button>
+            <>
+              <Button variant="outline" onClick={() => setEditing(true)}><Pencil className="h-4 w-4 mr-1" />Editar</Button>
+              <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}><Trash2 className="h-4 w-4 mr-1" />Eliminar</Button>
+            </>
           )}
         </div>
       </div>
+      <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title="¿Eliminar cliente?" description={`Vas a eliminar a ${cliente.nombre}. El cliente quedará inactivo y no aparecerá en nuevos documentos.`} onConfirm={handleDelete} loading={deleting} confirmLabel="Eliminar" variant="destructive" requireText="eliminar" />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>

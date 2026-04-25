@@ -4,10 +4,11 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Loader2, FileDown, CheckCircle, XCircle, RefreshCw, Pencil, X } from "lucide-react";
+import { ArrowLeft, Loader2, FileDown, CheckCircle, XCircle, RefreshCw, Pencil, X, Trash2 } from "lucide-react";
 import { formatDate, formatEuro } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { DocumentoForm, type DocumentoFormData, type InitialData } from "@/components/documentos/DocumentoForm";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 interface Linea {
   id: string; productoId?: string | null; descripcion: string; cantidad: number;
@@ -38,6 +39,8 @@ export default function PresupuestoDetallePage() {
   const [acting, setActing] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => { fetchData(); }, [id]);
 
@@ -76,6 +79,17 @@ export default function PresupuestoDetallePage() {
     } catch (err: unknown) {
       toast({ title: "Error", description: err instanceof Error ? err.message : "Error", variant: "destructive" });
     } finally { setActing(false); }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/presupuestos/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: "Presupuesto eliminado" });
+      router.push("/presupuestos");
+    } catch (err: unknown) { toast({ title: "Error", description: err instanceof Error ? err.message : "Error", variant: "destructive" }); }
+    finally { setDeleting(false); setDeleteOpen(false); }
   }
 
   async function handleEditSubmit(formData: DocumentoFormData) {
@@ -168,8 +182,12 @@ export default function PresupuestoDetallePage() {
           {data.pedido && (
             <Link href={`/pedidos/${data.pedido.id}`}><Button size="sm" variant="secondary">Ver pedido {data.pedido.numero}</Button></Link>
           )}
+          {(data.estado === "BORRADOR" || data.estado === "RECHAZADO") && (
+            <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)} disabled={acting}><Trash2 className="h-4 w-4 mr-1" />Eliminar</Button>
+          )}
         </div>
       </div>
+      <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title="¿Eliminar presupuesto?" description={`Vas a eliminar el presupuesto ${data.numero}. Esta acción no se puede deshacer.`} onConfirm={handleDelete} loading={deleting} confirmLabel="Eliminar" variant="destructive" requireText="eliminar" />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>

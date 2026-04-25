@@ -146,3 +146,21 @@ export async function PUT(
     return NextResponse.json({ error: "Error al actualizar albarán" }, { status: 500 });
   }
 }
+
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  try {
+    const { id } = await params;
+    const albaran = await prisma.albaran.findUnique({ where: { id } });
+    if (!albaran) return NextResponse.json({ error: "Albarán no encontrado" }, { status: 404 });
+    if (albaran.estado !== "PENDIENTE") {
+      return NextResponse.json({ error: "Solo se pueden eliminar albaranes en estado PENDIENTE" }, { status: 400 });
+    }
+    await prisma.albaran.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("DELETE /api/albaranes/[id] error:", error);
+    return NextResponse.json({ error: "Error al eliminar albarán" }, { status: 500 });
+  }
+}

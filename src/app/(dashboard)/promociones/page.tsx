@@ -3,14 +3,19 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { formatDate, formatEuro } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface Promo { id: string; codigo: string; descripcion: string | null; tipo: string; valor: number; fechaFin: string | null; limiteUsos: number | null; usosActuales: number; activo: boolean; }
 
 export default function PromocionesPage() {
+  const { toast } = useToast();
   const [promos, setPromos] = useState<Promo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<Promo | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetch("/api/promociones").then((r) => r.json()).then(setPromos).finally(() => setLoading(false));
@@ -19,6 +24,20 @@ export default function PromocionesPage() {
   async function toggleActivo(id: string, activo: boolean) {
     await fetch(`/api/promociones/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ activo: !activo }) });
     setPromos((p) => p.map((x) => x.id === id ? { ...x, activo: !activo } : x));
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/promociones/${deleteTarget.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: "Promoción eliminada" });
+      setPromos((p) => p.filter((x) => x.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (err: unknown) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Error", variant: "destructive" });
+    } finally { setDeleting(false); }
   }
 
   return (
@@ -56,15 +75,32 @@ export default function PromocionesPage() {
                   <Badge variant={p.activo ? "default" : "secondary"}>{p.activo ? "Activo" : "Inactivo"}</Badge>
                 </td>
                 <td className="px-4 py-3">
-                  <button onClick={() => toggleActivo(p.id, p.activo)} className="text-xs text-muted-foreground hover:text-foreground underline">
-                    {p.activo ? "Desactivar" : "Activar"}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => toggleActivo(p.id, p.activo)} className="text-xs text-muted-foreground hover:text-foreground underline">
+                      {p.activo ? "Desactivar" : "Activar"}
+                    </button>
+                    <button onClick={() => setDeleteTarget(p)} className="text-destructive hover:text-destructive/80">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}
+        title="¿Eliminar código promocional?"
+        description={`Vas a eliminar el código ${deleteTarget?.codigo}. Esta acción no se puede deshacer.`}
+        onConfirm={handleDelete}
+        loading={deleting}
+        confirmLabel="Eliminar"
+        variant="destructive"
+        requireText="eliminar"
+      />
     </div>
   );
 }

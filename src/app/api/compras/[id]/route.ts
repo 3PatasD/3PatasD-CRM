@@ -112,3 +112,21 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Error al actualizar compra" }, { status: 500 });
   }
 }
+
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  try {
+    const { id } = await params;
+    const compra = await prisma.compra.findUnique({ where: { id } });
+    if (!compra) return NextResponse.json({ error: "Compra no encontrada" }, { status: 404 });
+    if (!["PENDIENTE", "CANCELADA"].includes(compra.estado)) {
+      return NextResponse.json({ error: "Solo se pueden eliminar compras en estado PENDIENTE o CANCELADA" }, { status: 400 });
+    }
+    await prisma.compra.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("DELETE /api/compras/[id] error:", error);
+    return NextResponse.json({ error: "Error al eliminar compra" }, { status: 500 });
+  }
+}

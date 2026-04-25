@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, PackageCheck } from "lucide-react";
+import { ArrowLeft, Loader2, PackageCheck, Trash2 } from "lucide-react";
 import { formatDate, formatEuro, toDecimal } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 interface LineaCompra { id: string; descripcion: string; cantidad: number; cantidadRecibida: number; precioUnitario: number; iva: number; subtotal: number; producto: { nombre: string; sku: string } | null; }
 interface Compra {
@@ -31,6 +32,8 @@ export default function CompraDetallePage() {
   const [data, setData] = useState<Compra | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [showRecepcion, setShowRecepcion] = useState(false);
   const [cantidades, setCantidades] = useState<Record<string, number>>({});
 
@@ -65,6 +68,17 @@ export default function CompraDetallePage() {
     finally { setActing(false); }
   }
 
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/compras/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: "Compra eliminada" });
+      router.push("/compras");
+    } catch (err: unknown) { toast({ title: "Error", description: err instanceof Error ? err.message : "Error", variant: "destructive" }); }
+    finally { setDeleting(false); setDeleteOpen(false); }
+  }
+
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   if (!data) return null;
 
@@ -83,8 +97,14 @@ export default function CompraDetallePage() {
             <p className="text-muted-foreground text-sm">{data.proveedor.nombre} · {formatDate(data.fechaEmision)}</p>
           </div>
         </div>
-        {canReceive && <Button size="sm" onClick={() => setShowRecepcion(true)}><PackageCheck className="h-4 w-4 mr-1" />Registrar recepción</Button>}
+        <div className="flex gap-2">
+          {canReceive && <Button size="sm" onClick={() => setShowRecepcion(true)}><PackageCheck className="h-4 w-4 mr-1" />Registrar recepción</Button>}
+          {(data.estado === "PENDIENTE" || data.estado === "CANCELADA") && (
+            <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)} disabled={acting}><Trash2 className="h-4 w-4 mr-1" />Eliminar</Button>
+          )}
+        </div>
       </div>
+      <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title="¿Eliminar compra?" description={`Vas a eliminar la compra ${data.numero}. Esta acción no se puede deshacer.`} onConfirm={handleDelete} loading={deleting} confirmLabel="Eliminar" variant="destructive" requireText="eliminar" />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>

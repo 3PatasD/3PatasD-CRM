@@ -4,9 +4,10 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Loader2, FileDown, CheckCircle, RotateCcw } from "lucide-react";
+import { ArrowLeft, Loader2, FileDown, CheckCircle, RotateCcw, Trash2 } from "lucide-react";
 import { formatDate, formatEuro, toDecimal } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 interface LineaAlbaran { id: string; descripcion: string; cantidad: number; precioUnitario: number; iva: number; subtotal: number; }
 interface Albaran {
@@ -26,6 +27,8 @@ export default function AlbaranDetallePage() {
   const [data, setData] = useState<Albaran | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => { fetchData(); }, [id]);
 
@@ -66,6 +69,17 @@ export default function AlbaranDetallePage() {
     finally { setActing(false); }
   }
 
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/albaranes/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: "Albarán eliminado" });
+      router.push("/albaranes");
+    } catch (err: unknown) { toast({ title: "Error", description: err instanceof Error ? err.message : "Error", variant: "destructive" }); }
+    finally { setDeleting(false); setDeleteOpen(false); }
+  }
+
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   if (!data) return null;
 
@@ -104,8 +118,12 @@ export default function AlbaranDetallePage() {
           {data.factura && (
             <Link href={`/facturas/${data.factura.id}`}><Button size="sm" variant="secondary">Ver factura {data.factura.numero}</Button></Link>
           )}
+          {data.estado === "PENDIENTE" && (
+            <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)} disabled={acting}><Trash2 className="h-4 w-4 mr-1" />Eliminar</Button>
+          )}
         </div>
       </div>
+      <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title="¿Eliminar albarán?" description={`Vas a eliminar el albarán ${data.numero}. Esta acción no se puede deshacer.`} onConfirm={handleDelete} loading={deleting} confirmLabel="Eliminar" variant="destructive" requireText="eliminar" />
 
       <div className="text-sm text-muted-foreground">
         Pedido: <Link href={`/pedidos/${data.pedido.id}`} className="text-primary hover:underline font-mono">{data.pedido.numero}</Link>
