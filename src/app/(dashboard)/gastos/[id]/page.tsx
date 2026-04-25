@@ -23,6 +23,8 @@ interface Gasto {
   createdAt: string;
 }
 
+type GastoForm = Omit<Partial<Gasto>, "importe" | "iva"> & { importe?: string; iva?: string };
+
 const TIPO_LABELS: Record<string, string> = {
   SUSCRIPCION: "Suscripción", COMPRA_PUNTUAL: "Compra puntual", FACTURA_PROVEEDOR: "Factura proveedor",
 };
@@ -53,7 +55,7 @@ export default function GastoDetallePage() {
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [form, setForm] = useState<Partial<Gasto & { importe: string; iva: string }>>({});
+  const [form, setForm] = useState<GastoForm>({});
 
   useEffect(() => { fetchData(); }, [id]);
 
