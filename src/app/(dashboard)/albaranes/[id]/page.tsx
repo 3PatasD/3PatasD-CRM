@@ -53,7 +53,11 @@ export default function AlbaranDetallePage() {
   async function crearFactura() {
     setActing(true);
     try {
-      const res = await fetch(`/api/albaranes/${id}/facturar`, { method: "POST" });
+      const res = await fetch(`/api/albaranes/${id}/facturar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ albaranIds: [id] }),
+      });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
       toast({ title: "Factura creada", description: d.numero });
