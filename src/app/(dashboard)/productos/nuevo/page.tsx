@@ -80,6 +80,13 @@ export default function NuevoProductoPage() {
 
   const set = (f: string, v: string) => setForm((p) => ({ ...p, [f]: v }));
 
+  const ivaNum = parseFloat(form.iva) || 0;
+  const ivaFactor = 1 + ivaNum / 100;
+  const ventaTotalNum = parseFloat(form.precioVenta) || 0;
+  const costoTotalNum = parseFloat(form.precioCosto) || 0;
+  const ventaBase = ivaNum > 0 ? ventaTotalNum / ivaFactor : ventaTotalNum;
+  const costoBase = ivaNum > 0 ? costoTotalNum / ivaFactor : costoTotalNum;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -89,9 +96,9 @@ export default function NuevoProductoPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          precioCosto: parseFloat(form.precioCosto),
-          precioVenta: parseFloat(form.precioVenta),
-          iva: parseFloat(form.iva),
+          precioCosto: ivaNum > 0 ? parseFloat(form.precioCosto) / (1 + ivaNum / 100) : parseFloat(form.precioCosto),
+          precioVenta: ivaNum > 0 ? parseFloat(form.precioVenta) / (1 + ivaNum / 100) : parseFloat(form.precioVenta),
+          iva: ivaNum,
           stockActual: parseFloat(form.stockActual),
           stockMinimo: parseFloat(form.stockMinimo),
           categoriaId: form.categoriaId || null,
@@ -250,12 +257,14 @@ export default function NuevoProductoPage() {
             <CardHeader><CardTitle className="text-base">Precios y IVA</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <Label>Precio costo (€) *</Label>
+                <Label>Precio costo con IVA (€) *</Label>
                 <Input type="number" step="0.01" min="0" value={form.precioCosto} onChange={(e) => set("precioCosto", e.target.value)} required />
+                {costoTotalNum > 0 && <p className="text-xs text-muted-foreground">Base: {costoBase.toFixed(2)} € + {ivaNum}% IVA</p>}
               </div>
               <div className="space-y-1.5">
-                <Label>Precio venta (€) *</Label>
+                <Label>Precio venta con IVA (€) *</Label>
                 <Input type="number" step="0.01" min="0" value={form.precioVenta} onChange={(e) => set("precioVenta", e.target.value)} required />
+                {ventaTotalNum > 0 && <p className="text-xs text-muted-foreground">Base: {ventaBase.toFixed(2)} € + {ivaNum}% IVA</p>}
               </div>
               <div className="space-y-1.5">
                 <Label>IVA (%)</Label>

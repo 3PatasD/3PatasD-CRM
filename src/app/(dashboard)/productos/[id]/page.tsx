@@ -40,7 +40,8 @@ export default function ProductoDetallePage() {
     ]).then(([prod, cats]) => {
       if (!prod.id) { router.push("/productos"); return; }
       setProducto(prod);
-      setForm({ ...prod, precioCosto: String(prod.precioCosto), precioVenta: String(prod.precioVenta), iva: String(prod.iva), stockActual: String(prod.stockActual), stockMinimo: String(prod.stockMinimo) });
+      const f = 1 + prod.iva / 100;
+      setForm({ ...prod, precioCosto: String((prod.precioCosto * f).toFixed(2)), precioVenta: String((prod.precioVenta * f).toFixed(2)), iva: String(prod.iva), stockActual: String(prod.stockActual), stockMinimo: String(prod.stockMinimo) });
       setCategorias(cats);
     }).finally(() => setLoading(false));
   }, [id]);
@@ -51,14 +52,18 @@ export default function ProductoDetallePage() {
       const res = await fetch(`/api/productos/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          precioCosto: parseFloat(form.precioCosto || "0"),
-          precioVenta: parseFloat(form.precioVenta || "0"),
-          iva: parseFloat(form.iva || "0"),
-          stockActual: parseFloat(form.stockActual || "0"),
-          stockMinimo: parseFloat(form.stockMinimo || "0"),
-        }),
+        body: JSON.stringify((() => {
+          const ivaEdit = parseFloat(form.iva || "0");
+          const factor = ivaEdit > 0 ? 1 + ivaEdit / 100 : 1;
+          return {
+            ...form,
+            precioCosto: parseFloat(form.precioCosto || "0") / factor,
+            precioVenta: parseFloat(form.precioVenta || "0") / factor,
+            iva: ivaEdit,
+            stockActual: parseFloat(form.stockActual || "0"),
+            stockMinimo: parseFloat(form.stockMinimo || "0"),
+          };
+        })()),
       });
       if (!res.ok) throw new Error((await res.json()).error);
       toast({ title: "Producto actualizado" });
@@ -148,12 +153,36 @@ export default function ProductoDetallePage() {
           <CardHeader><CardTitle className="text-base">Precios y Stock</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <div className="flex flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">Precio de venta</Label>
-              {editing ? <Input type="number" step="0.01" value={form.precioVenta ?? ""} onChange={(e) => set("precioVenta", e.target.value)} className="h-8" /> : <span className="text-sm font-medium">{formatEuro(producto.precioVenta)}</span>}
+              <Label className="text-xs text-muted-foreground">Precio de venta (con IVA)</Label>
+              {editing ? (
+                <>
+                  <Input type="number" step="0.01" value={form.precioVenta ?? ""} onChange={(e) => set("precioVenta", e.target.value)} className="h-8" />
+                  {parseFloat(form.precioVenta || "0") > 0 && (
+                    <p className="text-xs text-muted-foreground">Base: {(parseFloat(form.precioVenta || "0") / (1 + parseFloat(form.iva || "0") / 100)).toFixed(2)} €</p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span className="text-sm font-medium">{formatEuro(producto.precioVenta * (1 + producto.iva / 100))}</span>
+                  <span className="text-xs text-muted-foreground">Base sin IVA: {formatEuro(producto.precioVenta)}</span>
+                </>
+              )}
             </div>
             <div className="flex flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">Precio de costo</Label>
-              {editing ? <Input type="number" step="0.01" value={form.precioCosto ?? ""} onChange={(e) => set("precioCosto", e.target.value)} className="h-8" /> : <span className="text-sm">{formatEuro(producto.precioCosto)}</span>}
+              <Label className="text-xs text-muted-foreground">Precio de costo (con IVA)</Label>
+              {editing ? (
+                <>
+                  <Input type="number" step="0.01" value={form.precioCosto ?? ""} onChange={(e) => set("precioCosto", e.target.value)} className="h-8" />
+                  {parseFloat(form.precioCosto || "0") > 0 && (
+                    <p className="text-xs text-muted-foreground">Base: {(parseFloat(form.precioCosto || "0") / (1 + parseFloat(form.iva || "0") / 100)).toFixed(2)} €</p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span className="text-sm">{formatEuro(producto.precioCosto * (1 + producto.iva / 100))}</span>
+                  <span className="text-xs text-muted-foreground">Base sin IVA: {formatEuro(producto.precioCosto)}</span>
+                </>
+              )}
             </div>
             <div className="flex flex-col gap-1">
               <Label className="text-xs text-muted-foreground">IVA</Label>
