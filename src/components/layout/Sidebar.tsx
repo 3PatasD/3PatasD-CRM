@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, Building2, Package, FileText,
   ShoppingCart, ClipboardList, Truck, Receipt, Tag,
-  Settings, UserCog, ChevronRight, X,
+  Settings, UserCog, ChevronRight, X, TrendingDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Role } from "@prisma/client";
@@ -22,6 +22,7 @@ const navItems = [
   { label: "Facturas", href: "/facturas", icon: Receipt, roles: ["ADMIN","VENDEDOR"] },
   { separator: true },
   { label: "Compras", href: "/compras", icon: ShoppingCart, roles: ["ADMIN","ALMACEN"] },
+  { label: "Gastos", href: "/gastos", icon: TrendingDown, roles: ["ADMIN","VENDEDOR"] },
   { separator: true },
   { label: "Promociones", href: "/promociones", icon: Tag, roles: ["ADMIN","VENDEDOR"] },
   { separator: true },

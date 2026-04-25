@@ -55,6 +55,38 @@ enum TipoPromocion {
   FIJO
 }
 
+enum TipoGasto {
+  SUSCRIPCION
+  COMPRA_PUNTUAL
+  FACTURA_PROVEEDOR
+}
+
+enum EstadoGasto {
+  PENDIENTE
+  PAGADO
+  CANCELADO
+}
+
+enum CategoriaGasto {
+  SOFTWARE
+  HARDWARE
+  SERVICIOS
+  ALQUILER
+  SUMINISTROS
+  MARKETING
+  FORMACION
+  TRANSPORTE
+  IMPUESTOS
+  OTROS
+}
+
+enum PeriodicidadGasto {
+  MENSUAL
+  TRIMESTRAL
+  SEMESTRAL
+  ANUAL
+}
+
 // ─── COMPANY SETTINGS ─────────────────────────────────────────────────────────
 
 model ConfiguracionEmpresa {
@@ -88,6 +120,7 @@ model Usuario {
 
   presupuestos Presupuesto[]
   pedidos      Pedido[]
+  gastos       Gasto[]
 }
 
 // ─── CUSTOMERS ────────────────────────────────────────────────────────────────
@@ -133,6 +166,7 @@ model Proveedor {
 
   productos ProductoProveedor[]
   compras   Compra[]
+  gastos    Gasto[]
 }
 
 // ─── CATEGORIES ───────────────────────────────────────────────────────────────
@@ -392,4 +426,32 @@ model LineaCompra {
   iva              Decimal   @db.Decimal(5, 2)
   subtotal         Decimal   @db.Decimal(10, 2)
   orden            Int
+}
+
+// ─── GASTOS (EXPENSES) ────────────────────────────────────────────────────────
+
+model Gasto {
+  id                String             @id @default(cuid())
+  tipo              TipoGasto
+  concepto          String
+  categoria         CategoriaGasto?
+  proveedorId       String?
+  proveedor         Proveedor?         @relation(fields: [proveedorId], references: [id])
+  proveedorNombre   String?
+  importe           Decimal            @db.Decimal(10, 2)
+  iva               Decimal            @default(21) @db.Decimal(5, 2)
+  importeTotal      Decimal            @db.Decimal(10, 2)
+  fecha             DateTime           @default(now())
+  fechaVencimiento  DateTime?
+  estado            EstadoGasto        @default(PENDIENTE)
+  metodoPago        String?
+  numeroFactura     String?
+  notas             String?
+  esRecurrente      Boolean            @default(false)
+  periodicidad      PeriodicidadGasto?
+  proximaRenovacion DateTime?
+  usuarioId         String
+  usuario           Usuario            @relation(fields: [usuarioId], references: [id])
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 }
