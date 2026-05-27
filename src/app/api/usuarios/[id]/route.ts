@@ -37,7 +37,13 @@ export async function PUT(
 
     const updateData: Record<string, unknown> = {};
 
-    if (body.nombre !== undefined) updateData.nombre = body.nombre;
+    if (body.nombre !== undefined) updateData.nombre = body.nombre.trim();
+    if (body.email !== undefined) {
+      const emailTrim = body.email.trim().toLowerCase();
+      const clash = await prisma.usuario.findFirst({ where: { email: emailTrim, NOT: { id } } });
+      if (clash) return NextResponse.json({ error: "Ya existe un usuario con ese email" }, { status: 400 });
+      updateData.email = emailTrim;
+    }
     if (body.role !== undefined) updateData.role = body.role;
     if (body.activo !== undefined) updateData.activo = body.activo;
     if (body.password && typeof body.password === "string" && body.password.length >= 6) {
